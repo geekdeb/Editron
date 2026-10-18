@@ -2254,6 +2254,15 @@ html, body, #root {
   justify-content: center;
 }
 
+.welcome-hero-logo-img {
+  width: 68px;
+  height: 68px;
+  border-radius: 16px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 24px rgba(0, 210, 255, 0.4));
+  flex-shrink: 0;
+}
+
 .welcome-hero-icon {
   width: 64px;
   height: 64px;

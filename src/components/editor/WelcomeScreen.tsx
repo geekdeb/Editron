@@ -4,7 +4,7 @@
 
 import React from 'react';
 import {
-  Zap, FilePlus, FolderOpen, FileCode, FileJson,
+  FilePlus, FolderOpen, FileCode, FileJson,
   FileType, Terminal, Command
 } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
@@ -156,9 +156,11 @@ export const WelcomeScreen: React.FC = () => {
       <div className="welcome-content">
         {/* Hero Section */}
         <div className="welcome-hero">
-          <div className="welcome-hero-icon">
-            <Zap size={38} />
-          </div>
+          <img
+            src="/editron-logo.png"
+            alt="Editron Logo"
+            className="welcome-hero-logo-img"
+          />
           <div className="welcome-hero-text">
             <div className="welcome-hero-title-row">
               <h1 className="welcome-title">Editron</h1>

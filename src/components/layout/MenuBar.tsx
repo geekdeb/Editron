@@ -3,7 +3,6 @@
 // ============================================================
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Zap } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { useUIStore } from '../../store/uiStore';
 import { openFiles, saveFile, saveFileAs } from '../../services/fileService';
@@ -160,7 +159,7 @@ export const MenuBar: React.FC = () => {
   return (
     <div className="menubar" ref={menuRef}>
       <div className="menubar-logo">
-        <Zap size={15} />
+        <img src="/editron-logo.png" alt="" style={{ width: 16, height: 16, borderRadius: 3 }} />
         <span>Editron</span>
       </div>
 
