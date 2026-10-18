@@ -2,20 +2,50 @@
 // Editron — Settings Dialog
 // ============================================================
 
-import React, { useState } from 'react';
-import { X, Palette, Type, FileText, Keyboard, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Palette, Type, FileText, Keyboard, Save, FolderOpen } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
+import { getDefaultSaveFolder, pickDirectory } from '../../services/fileService';
 
 type SettingsTab = 'appearance' | 'editor' | 'files' | 'keybindings';
 
 export const SettingsDialog: React.FC = () => {
-  const { setShowSettings, theme, setTheme, wordWrap, toggleWordWrap, lineNumbers, toggleLineNumbers } = useUIStore();
+  const { 
+    setShowSettings, theme, setTheme, wordWrap, toggleWordWrap, 
+    lineNumbers, toggleLineNumbers, defaultSaveFolder, setDefaultSaveFolder, addToast 
+  } = useUIStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [fontSize, setFontSize] = useState(14);
   const [tabSize, setTabSize] = useState(4);
   const [fontFamily, setFontFamily] = useState('JetBrains Mono');
   const [autoSave, setAutoSave] = useState(true);
-  const [defaultFolder, setDefaultFolder] = useState('');
+  const [defaultFolder, setDefaultFolder] = useState(defaultSaveFolder || '');
+
+  useEffect(() => {
+    if (defaultSaveFolder) {
+      setDefaultFolder(defaultSaveFolder);
+    } else {
+      getDefaultSaveFolder().then((path) => {
+        if (path) {
+          setDefaultFolder(path);
+          setDefaultSaveFolder(path);
+        }
+      });
+    }
+  }, [defaultSaveFolder, setDefaultSaveFolder]);
+
+  const handleBrowseFolder = async () => {
+    const selected = await pickDirectory(defaultFolder);
+    if (selected) {
+      setDefaultFolder(selected);
+    }
+  };
+
+  const handleSaveAll = () => {
+    setDefaultSaveFolder(defaultFolder);
+    addToast('Settings saved successfully', 'success');
+    setShowSettings(false);
+  };
 
   const tabs: Array<{ id: SettingsTab; label: string; icon: React.ReactNode }> = [
     { id: 'appearance', label: 'Appearance', icon: <Palette size={14} /> },
@@ -166,15 +196,25 @@ export const SettingsDialog: React.FC = () => {
                   <Row label="Auto Save" description="Automatically save open files">
                     <Toggle value={autoSave} onChange={() => setAutoSave(!autoSave)} />
                   </Row>
-                  <Row label="Default Save Folder">
-                    <div style={{ display: 'flex', gap: 6 }}>
+                  <Row label="Default Save Folder" description="Folder where new documents are saved by default">
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <input
                         className="tool-input"
-                        style={{ width: 180 }}
-                        placeholder="%UserProfile%\Documents"
+                        style={{ width: 280, fontSize: 12, textOverflow: 'ellipsis' }}
+                        placeholder="Documents\Editron\datafiles"
                         value={defaultFolder}
                         onChange={(e) => setDefaultFolder(e.target.value)}
+                        title={defaultFolder}
                       />
+                      <button
+                        type="button"
+                        className="tool-btn"
+                        onClick={handleBrowseFolder}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, whiteSpace: 'nowrap' }}
+                        title="Browse for folder"
+                      >
+                        <FolderOpen size={13} /> Browse...
+                      </button>
                     </div>
                   </Row>
                 </div>
@@ -228,7 +268,7 @@ export const SettingsDialog: React.FC = () => {
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
           <button className="tool-btn" onClick={() => setShowSettings(false)}>Cancel</button>
-          <button className="tool-btn primary" onClick={() => setShowSettings(false)}>
+          <button className="tool-btn primary" onClick={handleSaveAll}>
             <Save size={13} /> Save
           </button>
         </div>

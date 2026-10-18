@@ -34,6 +34,13 @@ interface UIState {
   showCommandPalette: boolean;
   showFindReplace: boolean;
   showEmojiPicker: boolean;
+  showAbout: boolean;
+  showHelp: boolean;
+
+  // File paths & preferences
+  defaultSaveFolder: string;
+  openedFolderPath: string | null;
+  openedFolderRootName: string | null;
 
   // Toasts
   toasts: Toast[];
@@ -55,6 +62,10 @@ interface UIState {
   setShowCommandPalette: (show: boolean) => void;
   setShowFindReplace: (show: boolean) => void;
   setShowEmojiPicker: (show: boolean) => void;
+  setShowAbout: (show: boolean) => void;
+  setShowHelp: (show: boolean) => void;
+  setDefaultSaveFolder: (folder: string) => void;
+  setOpenedFolder: (path: string | null, rootName: string | null) => void;
   addToast: (message: string, type?: Toast['type'], duration?: number) => void;
   removeToast: (id: string) => void;
   addRecentFile: (filepath: string) => void;
@@ -62,7 +73,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   // Initial state
-  sidebarVisible: false,
+  sidebarVisible: typeof localStorage !== 'undefined' ? localStorage.getItem('editron_sidebar_visible') === 'true' : false,
   toolsPanelVisible: false,
   activeTool: null,
   theme: 'obsidian-dark',
@@ -75,11 +86,22 @@ export const useUIStore = create<UIState>((set) => ({
   showCommandPalette: false,
   showFindReplace: false,
   showEmojiPicker: false,
+  showAbout: false,
+  showHelp: false,
+  defaultSaveFolder: typeof localStorage !== 'undefined' ? (localStorage.getItem('editron_default_save_folder') || '') : '',
+  openedFolderPath: typeof localStorage !== 'undefined' ? (localStorage.getItem('editron_opened_folder_path') || null) : null,
+  openedFolderRootName: typeof localStorage !== 'undefined' ? (localStorage.getItem('editron_opened_folder_name') || null) : null,
   toasts: [],
   recentFiles: [],
 
   // Actions
-  toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
+  toggleSidebar: () => set((s) => {
+    const next = !s.sidebarVisible;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('editron_sidebar_visible', String(next));
+    }
+    return { sidebarVisible: next };
+  }),
   toggleToolsPanel: () => set((s) => ({ toolsPanelVisible: !s.toolsPanelVisible })),
   
   setActiveTool: (tool) => set((s) => ({ 
@@ -110,6 +132,26 @@ export const useUIStore = create<UIState>((set) => ({
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
   setShowFindReplace: (show) => set({ showFindReplace: show }),
   setShowEmojiPicker: (show) => set({ showEmojiPicker: show }),
+  setShowAbout: (show) => set({ showAbout: show }),
+  setShowHelp: (show) => set({ showHelp: show }),
+  setDefaultSaveFolder: (folder) => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('editron_default_save_folder', folder);
+    }
+    set({ defaultSaveFolder: folder });
+  },
+  setOpenedFolder: (path, rootName) => {
+    if (typeof localStorage !== 'undefined') {
+      if (path) {
+        localStorage.setItem('editron_opened_folder_path', path);
+        localStorage.setItem('editron_opened_folder_name', rootName || '');
+      } else {
+        localStorage.removeItem('editron_opened_folder_path');
+        localStorage.removeItem('editron_opened_folder_name');
+      }
+    }
+    set({ openedFolderPath: path, openedFolderRootName: rootName });
+  },
   
   addToast: (message, type = 'info', duration = 3000) => {
     const id = `toast-${Date.now()}`;

@@ -239,6 +239,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({ tabId }) => {
     const state = EditorState.create({
       doc: tab.content,
       extensions,
+      selection: { anchor: 0, head: 0 },
     });
 
     const view = new EditorView({
@@ -248,7 +249,30 @@ export const EditorPane: React.FC<EditorPaneProps> = ({ tabId }) => {
 
     viewRef.current = view;
 
+    // Immediately focus the editor and place the cursor at start position
+    const focusEditor = () => {
+      if (!viewRef.current) return;
+      viewRef.current.focus();
+      const docLen = viewRef.current.state.doc.length;
+      const targetPos = Math.min(
+        tab.cursorLine && tab.cursorCol && (tab.cursorLine > 1 || tab.cursorCol > 1)
+          ? Math.max(0, viewRef.current.state.doc.line(Math.min(tab.cursorLine, viewRef.current.state.doc.lines)).from + Math.max(0, tab.cursorCol - 1))
+          : 0,
+        docLen
+      );
+      viewRef.current.dispatch({
+        selection: { anchor: targetPos, head: targetPos },
+        scrollIntoView: true,
+      });
+    };
+
+    focusEditor();
+    const frameId = requestAnimationFrame(focusEditor);
+    const timerId = setTimeout(focusEditor, 40);
+
     return () => {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timerId);
       view.destroy();
       viewRef.current = null;
     };
@@ -280,7 +304,12 @@ export const EditorPane: React.FC<EditorPaneProps> = ({ tabId }) => {
   return (
     <div
       ref={containerRef}
-      style={{ flex: 1, overflow: 'hidden' }}
+      style={{ flex: 1, overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}
+      onClick={() => {
+        if (viewRef.current) {
+          viewRef.current.focus();
+        }
+      }}
     />
   );
 };

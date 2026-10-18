@@ -14,9 +14,11 @@ import { WelcomeScreen } from './components/editor/WelcomeScreen';
 import { MarkdownPreview } from './components/markdown/MarkdownPreview';
 import { ToolsPanel } from './components/tools/ToolsPanel';
 import { SettingsDialog } from './components/settings/SettingsDialog';
-import { useEditorStore } from './store/editorStore';
+import { AboutDialog } from './components/layout/AboutDialog';
+import { HelpDialog } from './components/layout/HelpDialog';
+import { useEditorStore, detectLanguage } from './store/editorStore';
 import { useUIStore } from './store/uiStore';
-import { openFiles, saveFile } from './services/fileService';
+import { openFiles, saveFile, saveFileAs, getDefaultSaveFolder, getFilenameFromPath, readFileFromDisk } from './services/fileService';
 
 // Toast component
 const Toasts: React.FC = () => {
@@ -51,11 +53,41 @@ export const App: React.FC = () => {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const {
     sidebarVisible, toolsPanelVisible, showCommandPalette,
-    showFindReplace, showSettings, zenMode, markdownPreview,
-    setShowCommandPalette, setShowFindReplace, setShowSettings,
+    showFindReplace, showSettings, showAbout, showHelp, zenMode, markdownPreview,
+    setShowCommandPalette, setShowFindReplace, setShowSettings, setShowAbout, setShowHelp,
     toggleSidebar, toggleToolsPanel, toggleWordWrap, toggleZenMode,
     toggleMarkdownPreview, addRecentFile, addToast,
+    defaultSaveFolder, setDefaultSaveFolder,
   } = useUIStore();
+
+  // ── Initialize default save folder on launch ───────────────
+  useEffect(() => {
+    if (!defaultSaveFolder) {
+      getDefaultSaveFolder().then((folder) => {
+        if (folder) setDefaultSaveFolder(folder);
+      });
+    }
+  }, [defaultSaveFolder, setDefaultSaveFolder]);
+
+  // ── Sync clean persisted tabs from disk on startup ─────────
+  useEffect(() => {
+    const syncPersistedTabs = async () => {
+      const { tabs, updateTab } = useEditorStore.getState();
+      for (const tab of tabs) {
+        if (tab.filepath && !tab.isDirty) {
+          try {
+            const diskContent = await readFileFromDisk(tab.filepath);
+            if (diskContent && diskContent !== tab.content) {
+              updateTab(tab.id, { content: diskContent });
+            }
+          } catch {
+            // Keep persisted content
+          }
+        }
+      }
+    };
+    syncPersistedTabs();
+  }, []);
 
   // ── Global keyboard shortcuts ─────────────────────────────
   const handleKeyDown = useCallback(
@@ -73,6 +105,9 @@ export const App: React.FC = () => {
       } else if (ctrl && !shift && !alt && e.key === 's') {
         e.preventDefault();
         handleSave();
+      } else if (ctrl && shift && !alt && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleSaveAs();
       } else if (ctrl && !shift && !alt && e.key === 'f') {
         e.preventDefault();
         setShowFindReplace(true);
@@ -82,6 +117,9 @@ export const App: React.FC = () => {
       } else if (ctrl && !shift && !alt && e.key === ',') {
         e.preventDefault();
         setShowSettings(true);
+      } else if (e.key === 'F1') {
+        e.preventDefault();
+        setShowHelp(true);
       } else if (ctrl && shift && !alt && e.key === 'P') {
         e.preventDefault();
         setShowCommandPalette(true);
@@ -101,11 +139,13 @@ export const App: React.FC = () => {
         if (showCommandPalette) setShowCommandPalette(false);
         if (showFindReplace) setShowFindReplace(false);
         if (showSettings) setShowSettings(false);
+        if (showAbout) setShowAbout(false);
+        if (showHelp) setShowHelp(false);
       }
     },
-    [addTab, setShowFindReplace, toggleSidebar, setShowSettings, setShowCommandPalette,
-      toggleToolsPanel, toggleMarkdownPreview, toggleWordWrap, toggleZenMode, showCommandPalette,
-      showFindReplace, showSettings]
+    [addTab, setShowFindReplace, toggleSidebar, setShowSettings, setShowAbout, setShowHelp,
+      setShowCommandPalette, toggleToolsPanel, toggleMarkdownPreview, toggleWordWrap, toggleZenMode,
+      showCommandPalette, showFindReplace, showSettings, showAbout, showHelp]
   );
 
   useEffect(() => {
@@ -150,12 +190,35 @@ export const App: React.FC = () => {
     const tab = useEditorStore.getState().getActiveTab();
     if (!tab) return;
     const res = await saveFile(tab.filepath, tab.filename, tab.content);
-    if (res.success) {
+    if (res.success && res.filepath) {
+      const savedName = res.filename || getFilenameFromPath(res.filepath);
       useEditorStore.getState().updateTab(tab.id, {
         isDirty: false,
-        filepath: res.filepath || tab.filepath,
+        filepath: res.filepath,
+        filename: savedName,
+        language: detectLanguage(savedName),
       });
-      addToast(`Saved: ${tab.filename}`, 'success');
+      addRecentFile(res.filepath);
+      addToast(`Saved: ${savedName}`, 'success');
+    } else if (res.error) {
+      addToast(`Save error: ${res.error}`, 'error');
+    }
+  };
+
+  const handleSaveAs = async () => {
+    const tab = useEditorStore.getState().getActiveTab();
+    if (!tab) return;
+    const res = await saveFileAs(tab.filename, tab.content);
+    if (res.success && res.filepath) {
+      const savedName = res.filename || getFilenameFromPath(res.filepath);
+      useEditorStore.getState().updateTab(tab.id, {
+        isDirty: false,
+        filepath: res.filepath,
+        filename: savedName,
+        language: detectLanguage(savedName),
+      });
+      addRecentFile(res.filepath);
+      addToast(`Saved as: ${savedName}`, 'success');
     } else if (res.error) {
       addToast(`Save error: ${res.error}`, 'error');
     }
@@ -236,6 +299,8 @@ export const App: React.FC = () => {
       {/* Overlays */}
       {showCommandPalette && <CommandPalette />}
       {showSettings && <SettingsDialog />}
+      {showAbout && <AboutDialog />}
+      {showHelp && <HelpDialog />}
 
       {/* Toasts */}
       <Toasts />

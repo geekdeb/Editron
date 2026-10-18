@@ -3,6 +3,7 @@
 // ============================================================
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface EditorTab {
   id: string;
@@ -80,11 +81,93 @@ export function detectLanguage(filename: string): string {
   return map[ext] || 'plaintext';
 }
 
-export const useEditorStore = create<EditorState>((set, get) => ({
-  tabs: [],
-  activeTabId: null,
+export function normalizePath(p?: string | null): string {
+  if (!p) return '';
+  return p.trim().replace(/\\/g, '/').toLowerCase();
+}
 
-  addTab: (tabData) => {
+export function isSameFile(
+  tabA: { filename: string; filepath?: string | null },
+  tabB: { filename: string; filepath?: string | null }
+): boolean {
+  if (!tabA.filepath && !tabB.filepath) {
+    return false; // Untitled / unsaved buffers are kept separate
+  }
+
+  const pA = normalizePath(tabA.filepath || tabA.filename);
+  const pB = normalizePath(tabB.filepath || tabB.filename);
+
+  if (pA === pB) return true;
+
+  // Check if one is a suffix of the other (e.g. 'abc.txt' vs 'c:/folder/abc.txt')
+  if (pA.endsWith('/' + pB) || pB.endsWith('/' + pA)) {
+    return true;
+  }
+
+  // Filename match when at least one path has no directory separators
+  const nameA = (tabA.filename || pA.split('/').pop() || '').toLowerCase();
+  const nameB = (tabB.filename || pB.split('/').pop() || '').toLowerCase();
+  if (nameA === nameB && nameA.length > 0 && nameA !== 'untitled') {
+    if (!pA.includes('/') || !pB.includes('/')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export const useEditorStore = create<EditorState>()(
+  persist(
+    (set, get) => ({
+      tabs: [],
+      activeTabId: null,
+
+      addTab: (tabData) => {
+    const isNewUntitled = !tabData.filepath && tabData.filename === 'Untitled' && (!tabData.content || tabData.content === '');
+
+    if (!isNewUntitled) {
+      const state = get();
+      // Check if file is already open in an existing tab
+      const existing = state.tabs.find((t) => isSameFile(t, tabData));
+      if (existing) {
+        // Switch to the existing tab
+        if (!existing.isDirty && tabData.content !== undefined && tabData.content !== existing.content) {
+          set((s) => ({
+            activeTabId: existing.id,
+            tabs: s.tabs.map((t) =>
+              t.id === existing.id
+                ? {
+                    ...t,
+                    content: tabData.content!,
+                    filepath: tabData.filepath || t.filepath,
+                  }
+                : t
+            ),
+          }));
+        } else {
+          set({ activeTabId: existing.id });
+        }
+        return existing.id;
+      }
+
+      // If the only open tab is an untouched blank "Untitled" buffer, replace it with this opened file
+      const isOnlyBlankUntitled =
+        state.tabs.length === 1 &&
+        !state.tabs[0].isDirty &&
+        !state.tabs[0].filepath &&
+        state.tabs[0].filename === 'Untitled' &&
+        state.tabs[0].content === '';
+
+      if (isOnlyBlankUntitled) {
+        const tab = createDefaultTab({ ...tabData, id: state.tabs[0].id });
+        set({
+          tabs: [tab],
+          activeTabId: tab.id,
+        });
+        return tab.id;
+      }
+    }
+
     const tab = createDefaultTab(tabData);
     set((state) => ({
       tabs: [...state.tabs, tab],
@@ -142,4 +225,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       activeTabId: id,
     }));
   },
-}));
+}),
+    {
+      name: 'editron_open_tabs_state',
+      partialize: (state) => ({
+        tabs: state.tabs,
+        activeTabId: state.activeTabId,
+      }),
+    }
+  )
+);

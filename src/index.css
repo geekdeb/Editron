@@ -253,8 +253,8 @@ html, body, #root {
   height: var(--menubar-height);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  padding: 0 4px;
-  gap: 0;
+  padding: 0 6px;
+  gap: 2px;
   -webkit-app-region: drag;
   flex-shrink: 0;
 }
@@ -772,6 +772,11 @@ html, body, #root {
   outline: none !important;
 }
 
+.cm-scroller {
+  height: 100% !important;
+  overflow: auto !important;
+}
+
 .cm-gutters {
   background: var(--editor-gutter) !important;
   border-right: 1px solid var(--border) !important;
@@ -791,6 +796,7 @@ html, body, #root {
 .cm-content {
   padding: 4px 0;
   caret-color: var(--editor-cursor);
+  min-height: 100% !important;
 }
 
 .cm-line {

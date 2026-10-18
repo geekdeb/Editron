@@ -4,6 +4,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { useUIStore } from '../store/uiStore';
 
 export interface OpenedFileResult {
   filepath: string | null;
@@ -83,22 +84,64 @@ export async function openFiles(): Promise<OpenedFileResult[]> {
   });
 }
 
+/** Get the default save folder ("datafiles" inside Editron folder) */
+export async function getDefaultSaveFolder(): Promise<string> {
+  if (isTauriEnv()) {
+    try {
+      const folder = await invoke<string>('get_default_save_folder');
+      if (folder) return folder;
+    } catch (err) {
+      console.warn('Failed to get default save folder from backend:', err);
+    }
+  }
+  return '%UserProfile%\\Documents\\Editron\\datafiles';
+}
+
+/** Open a native folder picker dialog */
+export async function pickDirectory(defaultPath?: string): Promise<string | null> {
+  if (isTauriEnv()) {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+        title: 'Select Default Save Folder',
+        defaultPath: defaultPath || undefined,
+      });
+      if (selected && typeof selected === 'string') {
+        return selected;
+      }
+    } catch (err) {
+      console.warn('Native open folder dialog failed:', err);
+    }
+  }
+  return null;
+}
+
 /** Save a file to disk (either to existing filepath or prompts Save As) */
 export async function saveFile(
   filepath: string | null,
   filename: string,
   content: string
-): Promise<{ success: boolean; filepath?: string; error?: string }> {
+): Promise<{ success: boolean; filepath?: string; filename?: string; error?: string }> {
   if (isTauriEnv()) {
     try {
       let targetPath = filepath;
 
       if (!targetPath) {
+        // Construct default path using configured default save folder if available
+        let saveAsDefault = filename;
+        const defaultDir = useUIStore.getState().defaultSaveFolder;
+        if (defaultDir) {
+          const sep = defaultDir.includes('/') ? '/' : '\\';
+          const trimmedDir = defaultDir.replace(/[/\\]+$/, '');
+          saveAsDefault = `${trimmedDir}${sep}${filename}`;
+        }
+
         const chosen = await saveDialog({
-          defaultPath: filename,
+          defaultPath: saveAsDefault,
           filters: [
             { name: 'All Files', extensions: ['*'] },
-            { name: 'Text', extensions: ['txt', 'md', 'json', 'js', 'ts'] },
+            { name: 'Text & Code', extensions: ['txt', 'md', 'json', 'js', 'ts', 'jsx', 'tsx', 'py', 'yaml', 'yml', 'xml', 'html', 'css', 'sql', 'toml'] },
           ],
         });
         if (!chosen) return { success: false };
@@ -106,7 +149,8 @@ export async function saveFile(
       }
 
       await invoke('write_file', { path: targetPath, content });
-      return { success: true, filepath: targetPath };
+      const finalFilename = getFilenameFromPath(targetPath);
+      return { success: true, filepath: targetPath, filename: finalFilename };
     } catch (err) {
       return { success: false, error: (err as Error).message || String(err) };
     }
@@ -121,7 +165,7 @@ export async function saveFile(
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
-    return { success: true, filepath: filename };
+    return { success: true, filepath: filename, filename };
   } catch (err) {
     return { success: false, error: (err as Error).message || String(err) };
   }
@@ -131,6 +175,38 @@ export async function saveFile(
 export async function saveFileAs(
   defaultName: string,
   content: string
-): Promise<{ success: boolean; filepath?: string; error?: string }> {
+): Promise<{ success: boolean; filepath?: string; filename?: string; error?: string }> {
   return saveFile(null, defaultName, content);
+}
+
+export interface BackendFileEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children?: BackendFileEntry[];
+}
+
+/** Read directory structure recursively from disk */
+export async function readDirectoryTree(dirPath: string): Promise<BackendFileEntry[]> {
+  if (isTauriEnv()) {
+    try {
+      const tree = await invoke<BackendFileEntry[]>('read_directory', { path: dirPath });
+      return tree || [];
+    } catch (err) {
+      console.warn('Failed to read directory tree via Tauri:', err);
+    }
+  }
+  return [];
+}
+
+/** Read a single file's content directly from disk */
+export async function readFileFromDisk(filePath: string): Promise<string> {
+  if (isTauriEnv()) {
+    try {
+      return await invoke<string>('read_file', { path: filePath });
+    } catch (err) {
+      console.warn('Failed to read file from disk:', err);
+    }
+  }
+  return '';
 }

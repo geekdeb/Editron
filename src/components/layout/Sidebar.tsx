@@ -1,17 +1,26 @@
 // ============================================================
-// Editron — Sidebar (File Explorer)
+// Editron — Sidebar (File Explorer with State Persistence)
 // ============================================================
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   FolderOpen, FileText, FileCode, FileJson, FileType,
-  ChevronRight, ChevronDown, Plus, RefreshCw, X
+  ChevronRight, ChevronDown, Plus, RefreshCw, X, FolderX
 } from 'lucide-react';
-import { useEditorStore, detectLanguage } from '../../store/editorStore';
+import { useEditorStore, detectLanguage, isSameFile } from '../../store/editorStore';
 import { useUIStore } from '../../store/uiStore';
+import {
+  readDirectoryTree,
+  readFileFromDisk,
+  pickDirectory,
+  isTauriEnv,
+  getFilenameFromPath,
+  BackendFileEntry
+} from '../../services/fileService';
 
 interface FileNode {
   name: string;
+  path?: string;
   type: 'file' | 'dir';
   children?: FileNode[];
   handle?: FileSystemFileHandle;
@@ -20,7 +29,7 @@ interface FileNode {
 const getFileIcon = (name: string) => {
   const lang = detectLanguage(name);
   if (lang === 'json') return <FileJson size={14} />;
-  if (['javascript', 'typescript', 'python', 'rust', 'java', 'cpp', 'c'].includes(lang)) return <FileCode size={14} />;
+  if (['javascript', 'typescript', 'python', 'rust', 'java', 'cpp', 'c', 'toml'].includes(lang)) return <FileCode size={14} />;
   if (lang === 'markdown') return <FileType size={14} />;
   return <FileText size={14} />;
 };
@@ -28,7 +37,7 @@ const getFileIcon = (name: string) => {
 const FileItem: React.FC<{
   node: FileNode;
   depth: number;
-  onOpenFile: (handle: FileSystemFileHandle, name: string) => void;
+  onOpenFile: (node: FileNode) => void;
 }> = ({ node, depth, onOpenFile }) => {
   const [expanded, setExpanded] = useState(true);
 
@@ -45,7 +54,7 @@ const FileItem: React.FC<{
           <span className="sidebar-filename">{node.name}</span>
         </button>
         {expanded && node.children?.map((child) => (
-          <FileItem key={child.name} node={child} depth={depth + 1} onOpenFile={onOpenFile} />
+          <FileItem key={child.path || child.name} node={child} depth={depth + 1} onOpenFile={onOpenFile} />
         ))}
       </div>
     );
@@ -55,8 +64,8 @@ const FileItem: React.FC<{
     <button
       className="sidebar-file-item"
       style={{ paddingLeft: `${8 + depth * 14}px` }}
-      onClick={() => node.handle && onOpenFile(node.handle, node.name)}
-      title={node.name}
+      onClick={() => onOpenFile(node)}
+      title={node.path || node.name}
     >
       <span className="sidebar-file-icon">{getFileIcon(node.name)}</span>
       <span className="sidebar-filename">{node.name}</span>
@@ -64,16 +73,68 @@ const FileItem: React.FC<{
   );
 };
 
-export const Sidebar: React.FC = () => {
-  const [tree, setTree] = useState<FileNode[]>([]);
-  const [rootName, setRootName] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const { addTab } = useEditorStore();
-  const { toggleSidebar, addToast } = useUIStore();
+function convertBackendEntries(entries: BackendFileEntry[]): FileNode[] {
+  return entries.map((entry) => ({
+    name: entry.name,
+    path: entry.path,
+    type: entry.is_dir ? 'dir' : 'file',
+    children: entry.children ? convertBackendEntries(entry.children) : undefined,
+  }));
+}
 
-  const handleOpenFolder = async () => {
+export const Sidebar: React.FC = () => {
+  const { addTab } = useEditorStore();
+  const { 
+    toggleSidebar, addToast, openedFolderPath, 
+    openedFolderRootName, setOpenedFolder 
+  } = useUIStore();
+  const [tree, setTree] = useState<FileNode[]>([]);
+  const [rootName, setRootName] = useState<string>(openedFolderRootName || '');
+  const [loading, setLoading] = useState(false);
+
+  // Load a folder tree by filesystem path (native Tauri)
+  const loadFolderByPath = useCallback(async (folderPath: string, customRootName?: string) => {
+    setLoading(true);
     try {
-      // @ts-ignore — File System Access API
+      const entries = await readDirectoryTree(folderPath);
+      const converted = convertBackendEntries(entries);
+      const name = customRootName || getFilenameFromPath(folderPath) || folderPath;
+      setTree(converted);
+      setRootName(name);
+      setOpenedFolder(folderPath, name);
+    } catch (err) {
+      console.warn('Failed to load folder tree:', err);
+      addToast('Could not load folder contents', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, setOpenedFolder]);
+
+  // Restore folder state on mount
+  useEffect(() => {
+    if (openedFolderPath) {
+      loadFolderByPath(openedFolderPath, openedFolderRootName || undefined);
+    }
+  }, [openedFolderPath, openedFolderRootName, loadFolderByPath]);
+
+  // Open a folder (Tauri native dialog or browser fallback)
+  const handleOpenFolder = async () => {
+    if (isTauriEnv()) {
+      try {
+        const selected = await pickDirectory(openedFolderPath || undefined);
+        if (selected) {
+          await loadFolderByPath(selected);
+          addToast(`Opened folder "${getFilenameFromPath(selected)}"`, 'success');
+        }
+      } catch (err) {
+        console.warn('Native folder selection failed:', err);
+      }
+      return;
+    }
+
+    // Browser Fallback (File System Access API)
+    try {
+      // @ts-ignore
       const dirHandle = await window.showDirectoryPicker?.();
       if (!dirHandle) {
         addToast('File System Access API not supported in this browser', 'warning');
@@ -81,6 +142,7 @@ export const Sidebar: React.FC = () => {
       }
       setLoading(true);
       setRootName(dirHandle.name);
+      setOpenedFolder(dirHandle.name, dirHandle.name);
 
       const buildTree = async (handle: FileSystemDirectoryHandle, depth = 0): Promise<FileNode[]> => {
         if (depth > 5) return [];
@@ -112,14 +174,44 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const handleOpenFile = useCallback(async (handle: FileSystemFileHandle, name: string) => {
+  const handleCloseFolder = () => {
+    setTree([]);
+    setRootName('');
+    setOpenedFolder(null, null);
+    addToast('Closed folder', 'info', 1500);
+  };
+
+  const handleRefreshFolder = () => {
+    if (openedFolderPath) {
+      loadFolderByPath(openedFolderPath, rootName);
+      addToast('Refreshed file tree', 'info', 1500);
+    } else {
+      handleOpenFolder();
+    }
+  };
+
+  const handleOpenFile = useCallback(async (node: FileNode) => {
     try {
-      const file = await handle.getFile();
-      const content = await file.text();
-      addTab({ filename: name, content, filepath: name });
-      addToast(`Opened "${name}"`, 'success');
+      let content = '';
+      const filepath = node.path || node.name;
+      const filename = node.name;
+
+      if (node.path) {
+        content = await readFileFromDisk(node.path);
+      } else if (node.handle) {
+        const file = await node.handle.getFile();
+        content = await file.text();
+      }
+
+      const alreadyOpen = useEditorStore.getState().tabs.some((t) => isSameFile(t, { filename, filepath }));
+      addTab({ filename, content, filepath });
+      if (alreadyOpen) {
+        addToast(`Switched to "${filename}"`, 'info', 1800);
+      } else {
+        addToast(`Opened "${filename}"`, 'success', 1800);
+      }
     } catch {
-      addToast(`Failed to open "${name}"`, 'error');
+      addToast(`Failed to open "${node.name}"`, 'error');
     }
   }, [addTab, addToast]);
 
@@ -159,11 +251,20 @@ export const Sidebar: React.FC = () => {
           </button>
           <button
             className="sidebar-action-btn"
-            onClick={handleOpenFolder}
-            title="Open Folder"
+            onClick={handleRefreshFolder}
+            title={openedFolderPath ? "Refresh Folder" : "Open Folder"}
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={loading ? 'spin' : ''} />
           </button>
+          {tree.length > 0 && (
+            <button
+              className="sidebar-action-btn"
+              onClick={handleCloseFolder}
+              title="Close Folder"
+            >
+              <FolderX size={14} />
+            </button>
+          )}
           <button
             className="sidebar-action-btn"
             onClick={toggleSidebar}
@@ -189,15 +290,25 @@ export const Sidebar: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="sidebar-root-label">
-              <FolderOpen size={14} />
-              <span>{rootName.toUpperCase()}</span>
+            <div className="sidebar-root-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FolderOpen size={14} />
+                <span>{rootName.toUpperCase()}</span>
+              </div>
+              <button 
+                className="tool-btn" 
+                onClick={handleOpenFolder}
+                style={{ padding: '1px 6px', fontSize: 10, height: 18 }}
+                title="Change Folder"
+              >
+                Change
+              </button>
             </div>
             {loading ? (
               <div className="sidebar-loading">Loading...</div>
             ) : (
               tree.map((node) => (
-                <FileItem key={node.name} node={node} depth={0} onOpenFile={handleOpenFile} />
+                <FileItem key={node.path || node.name} node={node} depth={0} onOpenFile={handleOpenFile} />
               ))
             )}
           </>

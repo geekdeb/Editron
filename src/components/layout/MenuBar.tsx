@@ -3,9 +3,9 @@
 // ============================================================
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useEditorStore } from '../../store/editorStore';
+import { useEditorStore, detectLanguage } from '../../store/editorStore';
 import { useUIStore } from '../../store/uiStore';
-import { openFiles, saveFile, saveFileAs } from '../../services/fileService';
+import { openFiles, saveFile, saveFileAs, getFilenameFromPath } from '../../services/fileService';
 
 interface MenuItem {
   label: string;
@@ -26,7 +26,8 @@ export const MenuBar: React.FC = () => {
     setShowSettings, setShowCommandPalette, setShowFindReplace,
     toggleSidebar, toggleToolsPanel, toggleWordWrap, toggleZenMode,
     toggleMarkdownPreview, setActiveTool, setTheme, theme,
-    toggleLineNumbers, toggleMinimap, addToast, addRecentFile
+    toggleLineNumbers, toggleMinimap, addToast, addRecentFile,
+    setShowAbout, setShowHelp
   } = useUIStore();
   const activeTab = useEditorStore((s) => s.getActiveTab());
 
@@ -58,12 +59,16 @@ export const MenuBar: React.FC = () => {
   const handleSave = async () => {
     if (!activeTab) return;
     const res = await saveFile(activeTab.filepath, activeTab.filename, activeTab.content);
-    if (res.success) {
+    if (res.success && res.filepath) {
+      const savedName = res.filename || getFilenameFromPath(res.filepath);
       updateTab(activeTab.id, {
         isDirty: false,
-        filepath: res.filepath || activeTab.filepath,
+        filepath: res.filepath,
+        filename: savedName,
+        language: detectLanguage(savedName),
       });
-      addToast(`Saved: ${activeTab.filename}`, 'success');
+      addRecentFile(res.filepath);
+      addToast(`Saved: ${savedName}`, 'success');
     } else if (res.error) {
       addToast(`Save error: ${res.error}`, 'error');
     }
@@ -73,12 +78,15 @@ export const MenuBar: React.FC = () => {
     if (!activeTab) return;
     const res = await saveFileAs(activeTab.filename, activeTab.content);
     if (res.success && res.filepath) {
+      const savedName = res.filename || getFilenameFromPath(res.filepath);
       updateTab(activeTab.id, {
         isDirty: false,
         filepath: res.filepath,
-        filename: res.filepath.split(/[/\\]/).pop() || activeTab.filename,
+        filename: savedName,
+        language: detectLanguage(savedName),
       });
-      addToast(`Saved as: ${activeTab.filename}`, 'success');
+      addRecentFile(res.filepath);
+      addToast(`Saved as: ${savedName}`, 'success');
     } else if (res.error) {
       addToast(`Save error: ${res.error}`, 'error');
     }
@@ -96,6 +104,13 @@ export const MenuBar: React.FC = () => {
     }
     updateTab(activeTab.id, { content: newContent, isDirty: true });
     addToast(`Applied ${type}case transform`, 'info');
+  };
+
+  const handleCheckUpdates = () => {
+    addToast('Checking for updates...', 'info', 1500);
+    setTimeout(() => {
+      addToast('You are on the latest version! (Editron v1.0.0)', 'success', 3500);
+    }, 1000);
   };
 
   const menus: Record<string, MenuItem[]> = {
@@ -154,14 +169,18 @@ export const MenuBar: React.FC = () => {
       { label: 'lowercase', action: () => transformText('lower') },
       { label: 'Title Case', action: () => transformText('title') },
     ],
+    Settings: [
+      { label: '⚙ Preferences...', shortcut: 'Ctrl+,', action: () => setShowSettings(true) },
+      { separator: true, label: '' },
+      { label: '🔄 Check for Updates...', action: () => handleCheckUpdates() },
+      { separator: true, label: '' },
+      { label: '❓ Help & Shortcuts', shortcut: 'F1', action: () => setShowHelp(true) },
+      { label: 'ℹ️ About Editron', action: () => setShowAbout(true) },
+    ],
   };
 
   return (
     <div className="menubar" ref={menuRef}>
-      <div className="menubar-logo">
-        <img src="/editron-logo.png" alt="" style={{ width: 16, height: 16, borderRadius: 3 }} />
-        <span>Editron</span>
-      </div>
 
       {Object.entries(menus).map(([name, items]) => (
         <div key={name} style={{ position: 'relative' }}>

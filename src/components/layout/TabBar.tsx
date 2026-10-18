@@ -31,7 +31,10 @@ export const TabBar: React.FC = () => {
           role="tab"
           tabIndex={0}
           className={`tab ${tab.id === activeTabId ? 'active' : ''}`}
-          onClick={() => setActiveTab(tab.id)}
+          onClick={(e) => {
+            (e.currentTarget as HTMLElement).blur();
+            setActiveTab(tab.id);
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
@@ -61,7 +64,10 @@ export const TabBar: React.FC = () => {
       
       <button
         className="tab-new"
-        onClick={() => addTab({ filename: 'Untitled' })}
+        onClick={(e) => {
+          e.currentTarget.blur();
+          addTab({ filename: 'Untitled' });
+        }}
         title="New Tab (Ctrl+N)"
       >
         <Plus size={14} />
