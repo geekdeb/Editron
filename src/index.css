@@ -721,17 +721,32 @@ html, body, #root {
   padding: 0 8px;
   height: 100%;
   cursor: default;
-  transition: background var(--transition-fast);
+  transition: all var(--transition-fast);
   white-space: nowrap;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: inherit;
+  line-height: inherit;
 }
 
 .status-item.clickable {
   cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
 .status-item.clickable:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.status-theme-toggle {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.status-theme-toggle:hover {
+  transform: scale(1.15);
 }
 
 .status-item .status-icon {

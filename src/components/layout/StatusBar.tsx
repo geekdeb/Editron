@@ -9,30 +9,56 @@ import { getTextStats } from '../../services/encoderService';
 
 export const StatusBar: React.FC = () => {
   const activeTab = useEditorStore((s) => s.getActiveTab());
-  const { wordWrap, theme } = useUIStore();
+  const updateTab = useEditorStore((s) => s.updateTab);
+  const { wordWrap, toggleWordWrap, theme, setTheme, addToast } = useUIStore();
   
   const stats = activeTab ? getTextStats(activeTab.content) : null;
+
+  const handleToggleTheme = () => {
+    const nextTheme = theme === 'obsidian-dark' ? 'frost-light' : 'obsidian-dark';
+    setTheme(nextTheme);
+    addToast(
+      `Theme: ${nextTheme === 'obsidian-dark' ? 'Cyber Dark' : 'Frost Light'}`,
+      'info',
+      2000
+    );
+  };
+
+  const handleToggleLineEnding = () => {
+    if (!activeTab) return;
+    const next = activeTab.lineEnding === 'lf' ? 'crlf' : 'lf';
+    updateTab(activeTab.id, { lineEnding: next, isDirty: true });
+    addToast(`Line ending set to ${next.toUpperCase()}`, 'info', 2000);
+  };
 
   return (
     <div className="statusbar">
       <div className="statusbar-left">
         {activeTab ? (
           <>
-            <span className="status-item clickable" title="Encoding">
+            <span className="status-item" title="Encoding">
               {activeTab.encoding}
             </span>
             <span className="status-divider" />
-            <span className="status-item clickable" title="Line Ending">
+            <button
+              className="status-item clickable"
+              title="Click to toggle LF / CRLF"
+              onClick={handleToggleLineEnding}
+            >
               {activeTab.lineEnding === 'lf' ? 'LF' : 'CRLF'}
-            </span>
+            </button>
             <span className="status-divider" />
-            <span className="status-item clickable" title="Language">
+            <span className="status-item" title="Language">
               {activeTab.language}
             </span>
             <span className="status-divider" />
-            <span className="status-item" title="Word Wrap">
+            <button
+              className="status-item clickable"
+              title="Click to toggle word wrap"
+              onClick={toggleWordWrap}
+            >
               {wordWrap ? 'Wrap: On' : 'Wrap: Off'}
-            </span>
+            </button>
           </>
         ) : (
           <span className="status-item">Ready</span>
@@ -64,9 +90,14 @@ export const StatusBar: React.FC = () => {
           </>
         )}
         <span className="status-divider" />
-        <span className="status-item" title="Theme" style={{ textTransform: 'capitalize' }}>
+        <button
+          className="status-item clickable status-theme-toggle"
+          title={`Theme: ${theme === 'obsidian-dark' ? 'Cyber Dark' : 'Frost Light'} (Click to switch)`}
+          onClick={handleToggleTheme}
+          aria-label="Toggle theme"
+        >
           {theme === 'obsidian-dark' ? '🌙' : '☀️'}
-        </span>
+        </button>
       </div>
     </div>
   );
