@@ -31,22 +31,33 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Build Tauri App
+      - name: Build Tauri App & Publish Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Editron ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          releaseBody: |
+            ## Editron Release ${{ github.ref_name }} ⚡
+            
+            Download the official Windows installer below to get started:
+            - **`Editron_1.0.0_x64-setup.exe`** (Standard Windows NSIS Installer)
+            
+            ### Highlights
+            - ⚡ Instant native desktop startup and ultra-low RAM footprint
+            - 📁 Native File Explorer with persistent state across restarts
+            - 🛠 Developer toolbox (JSON/XML/YAML formatters, Base64, URL, JWT, Hashes, RegEx, Timestamps, Unicode)
+            - 📝 Live split Markdown preview
+            - 🎨 Cyber Dark & Frost Light themes
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
