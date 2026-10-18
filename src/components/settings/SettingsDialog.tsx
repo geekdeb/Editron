@@ -106,12 +106,12 @@ export const SettingsDialog: React.FC = () => {
                           width: 120, padding: 12, borderRadius: 8,
                           border: `2px solid ${theme === t ? 'var(--accent)' : 'var(--border)'}`,
                           cursor: 'pointer', textAlign: 'center', transition: 'all 200ms',
-                          background: t === 'obsidian-dark' ? '#1a1b26' : '#ffffff',
+                          background: t === 'obsidian-dark' ? '#0c121e' : '#ffffff',
                         }}
                       >
-                        <div style={{ height: 40, borderRadius: 4, marginBottom: 8, background: t === 'obsidian-dark' ? 'linear-gradient(135deg,#24283b,#1a1b26)' : 'linear-gradient(135deg,#f5f6f8,#ffffff)', border: `1px solid ${t === 'obsidian-dark' ? '#292d42' : '#e2e8f0'}` }} />
-                        <span style={{ fontSize: 12, color: t === 'obsidian-dark' ? '#c0caf5' : '#1f2937' }}>
-                          {t === 'obsidian-dark' ? '🌙 Obsidian Dark' : '☀️ Frost Light'}
+                        <div style={{ height: 40, borderRadius: 4, marginBottom: 8, background: t === 'obsidian-dark' ? 'linear-gradient(135deg,#162034,#0c121e)' : 'linear-gradient(135deg,#f5f6f8,#ffffff)', border: `1px solid ${t === 'obsidian-dark' ? '#1b273c' : '#e2e8f0'}` }} />
+                        <span style={{ fontSize: 12, color: t === 'obsidian-dark' ? '#e2e8f0' : '#1f2937' }}>
+                          {t === 'obsidian-dark' ? '🌙 Cyber Dark' : '☀️ Frost Light'}
                         </span>
                       </div>
                     ))}

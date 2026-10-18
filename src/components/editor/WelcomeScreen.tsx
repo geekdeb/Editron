@@ -49,7 +49,7 @@ const STARTER_TEMPLATES: StarterTemplate[] = [
     label: 'Markdown',
     ext: 'README.md',
     badge: 'MD',
-    badgeColor: '#7aa2f7',
+    badgeColor: '#00d2ff',
     icon: <FileType size={16} />,
     desc: 'Formatted document with live preview',
   },
