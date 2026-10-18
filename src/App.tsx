@@ -9,12 +9,14 @@ import { StatusBar } from './components/layout/StatusBar';
 import { EditorPane } from './components/editor/EditorPane';
 import { CommandPalette } from './components/layout/CommandPalette';
 import { FindReplace } from './components/layout/FindReplace';
-import { WelcomeScreen } from './components/layout/WelcomeScreen';
+import { Sidebar } from './components/layout/Sidebar';
+import { WelcomeScreen } from './components/editor/WelcomeScreen';
 import { MarkdownPreview } from './components/markdown/MarkdownPreview';
 import { ToolsPanel } from './components/tools/ToolsPanel';
 import { SettingsDialog } from './components/settings/SettingsDialog';
 import { useEditorStore } from './store/editorStore';
 import { useUIStore } from './store/uiStore';
+import { openFiles, saveFile } from './services/fileService';
 
 // Toast component
 const Toasts: React.FC = () => {
@@ -55,8 +57,6 @@ export const App: React.FC = () => {
     toggleMarkdownPreview, addRecentFile, addToast,
   } = useUIStore();
 
-  const activeTab = useEditorStore((s) => s.getActiveTab());
-
   // ── Global keyboard shortcuts ─────────────────────────────
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -69,7 +69,7 @@ export const App: React.FC = () => {
         addTab({ filename: 'Untitled' });
       } else if (ctrl && !shift && !alt && e.key === 'o') {
         e.preventDefault();
-        document.getElementById('file-input-trigger')?.click();
+        handleOpen();
       } else if (ctrl && !shift && !alt && e.key === 's') {
         e.preventDefault();
         handleSave();
@@ -94,9 +94,9 @@ export const App: React.FC = () => {
       } else if (!ctrl && alt && !shift && e.key === 'z') {
         e.preventDefault();
         toggleWordWrap();
-      } else if (ctrl && !shift && !alt && e.key === 'k') {
-        // Ctrl+K Z → zen mode
-        // (handled via next keydown — simplified here)
+      } else if (e.key === 'F11' || (ctrl && shift && !alt && e.key === 'Z')) {
+        e.preventDefault();
+        toggleZenMode();
       } else if (e.key === 'Escape') {
         if (showCommandPalette) setShowCommandPalette(false);
         if (showFindReplace) setShowFindReplace(false);
@@ -104,7 +104,7 @@ export const App: React.FC = () => {
       }
     },
     [addTab, setShowFindReplace, toggleSidebar, setShowSettings, setShowCommandPalette,
-      toggleToolsPanel, toggleMarkdownPreview, toggleWordWrap, showCommandPalette,
+      toggleToolsPanel, toggleMarkdownPreview, toggleWordWrap, toggleZenMode, showCommandPalette,
       showFindReplace, showSettings]
   );
 
@@ -137,21 +137,31 @@ export const App: React.FC = () => {
     };
   }, [addTab, addRecentFile]);
 
-  const handleSave = () => {
-    const tab = useEditorStore.getState().getActiveTab();
-    if (!tab) return;
-    const blob = new Blob([tab.content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = tab.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-    useEditorStore.getState().updateTab(tab.id, { isDirty: false });
-    addToast(`Saved: ${tab.filename}`, 'success');
+  const handleOpen = async () => {
+    const files = await openFiles();
+    files.forEach((file) => {
+      addTab({ filename: file.filename, content: file.content, filepath: file.filepath });
+      addRecentFile(file.filepath || file.filename);
+      addToast(`Opened: ${file.filename}`, 'success');
+    });
   };
 
-  // ── Hidden file input ─────────────────────────────────────
+  const handleSave = async () => {
+    const tab = useEditorStore.getState().getActiveTab();
+    if (!tab) return;
+    const res = await saveFile(tab.filepath, tab.filename, tab.content);
+    if (res.success) {
+      useEditorStore.getState().updateTab(tab.id, {
+        isDirty: false,
+        filepath: res.filepath || tab.filepath,
+      });
+      addToast(`Saved: ${tab.filename}`, 'success');
+    } else if (res.error) {
+      addToast(`Save error: ${res.error}`, 'error');
+    }
+  };
+
+  // ── Hidden file input fallback ─────────────────────────────
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     files.forEach((file) => {
@@ -186,21 +196,8 @@ export const App: React.FC = () => {
 
       {/* Main Body */}
       <div className="app-body">
-        {/* Left Sidebar — future: file tree */}
-        {sidebarVisible && !zenMode && (
-          <div className="sidebar">
-            <div className="sidebar-header">
-              <span>Explorer</span>
-            </div>
-            <div className="sidebar-content">
-              <div style={{ padding: 8, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: 20 }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>📁</div>
-                <div>No folder opened</div>
-                <div style={{ marginTop: 8, fontSize: 11 }}>Open a folder to see files</div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Left Sidebar */}
+        {sidebarVisible && !zenMode && <Sidebar />}
 
         {/* Editor Area */}
         <div className="editor-area">

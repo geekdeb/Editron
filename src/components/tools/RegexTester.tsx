@@ -12,7 +12,6 @@ export const RegexTester: React.FC = () => {
   const result = useMemo(() => {
     if (!pattern || !testString) return null;
     try {
-      const re = new RegExp(pattern, flags);
       const matches: Array<{ match: string; index: number; groups: string[] }> = [];
       let m: RegExpExecArray | null;
       const testRe = new RegExp(pattern, flags.includes('g') ? flags : flags + 'g');

@@ -26,10 +26,18 @@ export const TabBar: React.FC = () => {
   return (
     <div className="tabbar">
       {tabs.map((tab) => (
-        <button
+        <div
           key={tab.id}
+          role="tab"
+          tabIndex={0}
           className={`tab ${tab.id === activeTabId ? 'active' : ''}`}
           onClick={() => setActiveTab(tab.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setActiveTab(tab.id);
+            }
+          }}
           onMouseDown={(e) => handleMiddleClick(e, tab.id)}
           title={tab.filepath || tab.filename}
         >
@@ -48,7 +56,7 @@ export const TabBar: React.FC = () => {
           >
             <X size={12} />
           </button>
-        </button>
+        </div>
       ))}
       
       <button

@@ -2,9 +2,10 @@
 // Editron — Find & Replace Bar
 // ============================================================
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Search, Replace, X, ChevronDown, ChevronUp, CaseSensitive, Regex, WholeWord } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
+import { useEditorStore } from '../../store/editorStore';
 
 export const FindReplace: React.FC = () => {
   const [findText, setFindText] = useState('');
@@ -13,7 +14,26 @@ export const FindReplace: React.FC = () => {
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
-  const [matchCount, setMatchCount] = useState<{ current: number; total: number } | null>(null);
+
+  const activeTab = useEditorStore((s) => s.getActiveTab());
+  const matchCount = useMemo(() => {
+    if (!findText || !activeTab?.content) return null;
+    try {
+      let flags = 'g';
+      if (!caseSensitive) flags += 'i';
+      let regex: RegExp;
+      if (useRegex) {
+        regex = new RegExp(findText, flags);
+      } else {
+        const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(wholeWord ? `\\b${escaped}\\b` : escaped, flags);
+      }
+      const matches = activeTab.content.match(regex);
+      return { current: matches?.length ? 1 : 0, total: matches?.length || 0 };
+    } catch {
+      return null;
+    }
+  }, [findText, activeTab?.content, caseSensitive, wholeWord, useRegex]);
 
   const findRef = useRef<HTMLInputElement>(null);
   const { setShowFindReplace } = useUIStore();

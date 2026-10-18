@@ -37,7 +37,6 @@ let tabCounter = 0;
 
 const createDefaultTab = (overrides: Partial<EditorTab> & { filename: string }): EditorTab => ({
   id: `tab-${++tabCounter}-${Date.now()}`,
-  filename: overrides.filename,
   filepath: null,
   content: '',
   language: detectLanguage(overrides.filename),

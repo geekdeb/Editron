@@ -8,27 +8,35 @@ import hljs from 'highlight.js';
 import { useEditorStore } from '../../store/editorStore';
 import { Download, Eye } from 'lucide-react';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // Initialize markdown-it with syntax highlighting
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true,
-  highlight: (str, lang) => {
+  highlight: (str: string, lang: string): string => {
     if (lang && hljs.getLanguage(lang)) {
       try {
         const highlighted = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value;
         return `<pre class="hljs"><code class="language-${lang}">${highlighted}</code></pre>`;
       } catch {}
     }
-    return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`;
+    return `<pre class="hljs"><code>${escapeHtml(str)}</code></pre>`;
   },
 });
 
 // Enable task lists
-md.core.ruler.push('task_list', (state) => {
-  state.tokens.forEach((blockToken) => {
+md.core.ruler.push('task_list', (state: any) => {
+  state.tokens.forEach((blockToken: any) => {
     if (blockToken.type !== 'inline') return;
-    blockToken.children?.forEach((token, idx, arr) => {
+    blockToken.children?.forEach((token: any, idx: number, arr: any[]) => {
       if (token.type !== 'text') return;
       const match = token.content.match(/^\[( |x|X)\] /);
       if (match) {

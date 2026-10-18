@@ -4,7 +4,7 @@
 
 import React, { useState } from 'react';
 import { inspectCharacter } from '../../services/encoderService';
-import { Clock, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 // ── Timestamp Converter ───────────────────────────────────────
 export const TimestampTool: React.FC = () => {

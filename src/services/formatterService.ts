@@ -2,7 +2,7 @@
 // Editron — Formatter Service (JSON / XML / YAML)
 // ============================================================
 
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 
 // ── JSON ──────────────────────────────────────────────────────
 

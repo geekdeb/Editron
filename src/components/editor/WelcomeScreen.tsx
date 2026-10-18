@@ -1,120 +1,283 @@
 // ============================================================
-// Editron — Welcome Screen
+// Editron — Welcome Screen Component
 // ============================================================
 
 import React from 'react';
-import { Zap, FilePlus, FolderOpen, FileCode, FileJson, FileType } from 'lucide-react';
+import {
+  Zap, FilePlus, FolderOpen, FileCode, FileJson,
+  FileType, Terminal, Command
+} from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { useUIStore } from '../../store/uiStore';
+import { openFiles } from '../../services/fileService';
 
-const starterFiles = [
-  { label: 'New JavaScript File', ext: 'script.js', icon: <FileCode size={16} /> },
-  { label: 'New TypeScript File', ext: 'types.ts', icon: <FileCode size={16} /> },
-  { label: 'New JSON File', ext: 'data.json', icon: <FileJson size={16} /> },
-  { label: 'New Markdown File', ext: 'README.md', icon: <FileType size={16} /> },
-  { label: 'New Python File', ext: 'main.py', icon: <FileCode size={16} /> },
+interface StarterTemplate {
+  label: string;
+  ext: string;
+  badge: string;
+  badgeColor: string;
+  icon: React.ReactNode;
+  desc: string;
+}
+
+const STARTER_TEMPLATES: StarterTemplate[] = [
+  {
+    label: 'JavaScript',
+    ext: 'script.js',
+    badge: 'JS',
+    badgeColor: '#f7df1e',
+    icon: <FileCode size={16} />,
+    desc: 'ES6+ script with function demo',
+  },
+  {
+    label: 'TypeScript',
+    ext: 'types.ts',
+    badge: 'TS',
+    badgeColor: '#3178c6',
+    icon: <FileCode size={16} />,
+    desc: 'Type-safe interfaces & objects',
+  },
+  {
+    label: 'Python',
+    ext: 'main.py',
+    badge: 'PY',
+    badgeColor: '#3776ab',
+    icon: <Terminal size={16} />,
+    desc: 'Python starter with main entry',
+  },
+  {
+    label: 'Markdown',
+    ext: 'README.md',
+    badge: 'MD',
+    badgeColor: '#7aa2f7',
+    icon: <FileType size={16} />,
+    desc: 'Formatted document with live preview',
+  },
+  {
+    label: 'JSON',
+    ext: 'data.json',
+    badge: 'JSON',
+    badgeColor: '#ff9e64',
+    icon: <FileJson size={16} />,
+    desc: 'Standard key-value data structure',
+  },
 ];
 
-const starterContent: Record<string, string> = {
-  'script.js': `// Welcome to Editron\n// A lightning-fast, feature-rich text editor\n\nfunction greet(name) {\n  return \`Hello, \${name}!\`;\n}\n\nconsole.log(greet('World'));\n`,
-  'types.ts': `// TypeScript starter\ninterface User {\n  id: number;\n  name: string;\n  email: string;\n}\n\nconst user: User = {\n  id: 1,\n  name: 'Alice',\n  email: 'alice@example.com',\n};\n\nconsole.log(user);\n`,
-  'data.json': `{\n  "name": "Editron",\n  "version": "1.0.0",\n  "description": "Lightning-fast text editor",\n  "features": [\n    "Syntax highlighting",\n    "Multi-tab editing",\n    "Developer tools",\n    "Dark & light themes"\n  ]\n}\n`,
-  'README.md': `# Welcome to Editron\n\nA **lightning-fast**, feature-rich text editor for developers.\n\n## Features\n\n- 🚀 **Fast** — Powered by CodeMirror 6\n- 🎨 **Beautiful** — Obsidian Dark & Frost Light themes\n- 🛠️ **Tools** — Base64, JWT, Hash, Regex, and more\n- 📁 **Multi-tab** — Work on multiple files simultaneously\n\n## Keyboard Shortcuts\n\n| Shortcut | Action |\n|----------|--------|\n| Ctrl+N | New Tab |\n| Ctrl+O | Open File |\n| Ctrl+S | Save File |\n| Ctrl+Shift+P | Command Palette |\n| Ctrl+B | Toggle Sidebar |\n`,
-  'main.py': `# Welcome to Editron\n# Python starter file\n\ndef greet(name: str) -> str:\n    return f"Hello, {name}!"\n\nif __name__ == "__main__":\n    print(greet("World"))\n`,
+const STARTER_CONTENT: Record<string, string> = {
+  'script.js': `// Welcome to Editron
+// A lightning-fast, modern text editor
+
+function greet(name = 'Developer') {
+  return \`Welcome to Editron, \${name}! Ready to code.\`;
+}
+
+console.log(greet());
+`,
+  'types.ts': `// TypeScript Starter in Editron
+interface EditorConfig {
+  name: string;
+  version: string;
+  fast: boolean;
+  theme: 'obsidian-dark' | 'frost-light';
+}
+
+const config: EditorConfig = {
+  name: 'Editron',
+  version: '1.0.0',
+  fast: true,
+  theme: 'obsidian-dark',
+};
+
+console.log('Editron Initialized:', config);
+`,
+  'main.py': `# Python Starter in Editron
+def main():
+    editor = "Editron"
+    version = "1.0.0"
+    print(f"Welcome to {editor} v{version}!")
+
+if __name__ == "__main__":
+    main()
+`,
+  'README.md': `# Welcome to Editron
+
+> **A next-generation, lightweight text editor for Windows.**
+
+## Key Features
+
+- ⚡ **Blazing Fast** — Built with CodeMirror 6 & Tauri v2
+- 🎨 **Sleek Themes** — Obsidian Dark & Frost Light
+- 🛠️ **Developer Tools** — Base64, JWT, Hash, Regex, Formats & Unicode
+- 📝 **Live Markdown** — Split-pane live rendered preview
+
+## Useful Shortcuts
+
+| Shortcut | Description |
+| :--- | :--- |
+| **Ctrl + N** | New File |
+| **Ctrl + O** | Open File |
+| **Ctrl + S** | Save Document |
+| **Ctrl + Shift + P** | Command Palette |
+| **Ctrl + Shift + T** | Tools Panel |
+| **Ctrl + Shift + V** | Markdown Preview |
+`,
+  'data.json': `{
+  "app": "Editron",
+  "version": "1.0.0",
+  "engine": "CodeMirror 6",
+  "settings": {
+    "theme": "obsidian-dark",
+    "tabSize": 4,
+    "wordWrap": false
+  }
+}
+`,
 };
 
 export const WelcomeScreen: React.FC = () => {
   const { addTab } = useEditorStore();
-  const { toggleSidebar } = useUIStore();
+  const { toggleSidebar, setShowCommandPalette, addRecentFile, addToast } = useUIStore();
 
-  const handleOpen = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files) {
-        Array.from(files).forEach((file) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            addTab({
-              filename: file.name,
-              content: ev.target?.result as string || '',
-              filepath: file.name,
-            });
-          };
-          reader.readAsText(file);
-        });
-      }
-    };
-    input.click();
+  const handleOpen = async () => {
+    const files = await openFiles();
+    files.forEach((file) => {
+      addTab({
+        filename: file.filename,
+        content: file.content,
+        filepath: file.filepath,
+      });
+      addRecentFile(file.filepath || file.filename);
+      addToast(`Opened ${file.filename}`, 'success');
+    });
   };
 
   return (
     <div className="welcome-screen">
       <div className="welcome-content">
-        {/* Logo */}
-        <div className="welcome-logo">
-          <div className="welcome-logo-icon">
-            <Zap size={48} />
+        {/* Hero Section */}
+        <div className="welcome-hero">
+          <div className="welcome-hero-icon">
+            <Zap size={38} />
           </div>
-          <h1 className="welcome-title">Editron</h1>
-          <p className="welcome-subtitle">Lightning-fast text editor for developers</p>
+          <div className="welcome-hero-text">
+            <div className="welcome-hero-title-row">
+              <h1 className="welcome-title">Editron</h1>
+              <span className="welcome-version-badge">v1.0.0</span>
+            </div>
+            <p className="welcome-subtitle">
+              Lightning-fast text editor & developer swiss-army knife
+            </p>
+          </div>
         </div>
 
-        {/* Actions */}
-        <div className="welcome-actions">
-          <div className="welcome-section">
-            <h3 className="welcome-section-title">Start</h3>
-            <div className="welcome-action-list">
+        {/* Action Columns */}
+        <div className="welcome-grid">
+          {/* Column 1: Start Actions */}
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <span className="welcome-card-title">Start</span>
+            </div>
+            <div className="welcome-action-group">
               <button
-                className="welcome-action"
+                className="welcome-action-item"
                 onClick={() => addTab({ filename: 'Untitled' })}
               >
-                <FilePlus size={18} />
-                <span>New File</span>
-                <span className="welcome-shortcut">Ctrl+N</span>
+                <div className="welcome-action-icon-box accent">
+                  <FilePlus size={16} />
+                </div>
+                <div className="welcome-action-info">
+                  <span className="welcome-action-name">New File</span>
+                  <span className="welcome-action-desc">Create blank buffer</span>
+                </div>
+                <kbd className="welcome-action-kbd">Ctrl+N</kbd>
               </button>
-              <button className="welcome-action" onClick={handleOpen}>
-                <FolderOpen size={18} />
-                <span>Open File</span>
-                <span className="welcome-shortcut">Ctrl+O</span>
+
+              <button className="welcome-action-item" onClick={handleOpen}>
+                <div className="welcome-action-icon-box">
+                  <FolderOpen size={16} />
+                </div>
+                <div className="welcome-action-info">
+                  <span className="welcome-action-name">Open File...</span>
+                  <span className="welcome-action-desc">Open from filesystem</span>
+                </div>
+                <kbd className="welcome-action-kbd">Ctrl+O</kbd>
               </button>
-              <button className="welcome-action" onClick={toggleSidebar}>
-                <FolderOpen size={18} />
-                <span>File Explorer</span>
-                <span className="welcome-shortcut">Ctrl+B</span>
+
+              <button className="welcome-action-item" onClick={toggleSidebar}>
+                <div className="welcome-action-icon-box">
+                  <FolderOpen size={16} />
+                </div>
+                <div className="welcome-action-info">
+                  <span className="welcome-action-name">File Explorer</span>
+                  <span className="welcome-action-desc">Browse workspace directory</span>
+                </div>
+                <kbd className="welcome-action-kbd">Ctrl+B</kbd>
+              </button>
+
+              <button
+                className="welcome-action-item"
+                onClick={() => setShowCommandPalette(true)}
+              >
+                <div className="welcome-action-icon-box purple">
+                  <Command size={16} />
+                </div>
+                <div className="welcome-action-info">
+                  <span className="welcome-action-name">Command Palette</span>
+                  <span className="welcome-action-desc">Search all commands & tools</span>
+                </div>
+                <kbd className="welcome-action-kbd">Ctrl+Shift+P</kbd>
               </button>
             </div>
           </div>
 
-          <div className="welcome-section">
-            <h3 className="welcome-section-title">Quick Start</h3>
-            <div className="welcome-action-list">
-              {starterFiles.map((f) => (
+          {/* Column 2: Template Starters */}
+          <div className="welcome-card">
+            <div className="welcome-card-header">
+              <span className="welcome-card-title">Quick Templates</span>
+            </div>
+            <div className="welcome-action-group">
+              {STARTER_TEMPLATES.map((tmpl) => (
                 <button
-                  key={f.ext}
-                  className="welcome-action"
+                  key={tmpl.ext}
+                  className="welcome-action-item"
                   onClick={() =>
                     addTab({
-                      filename: f.ext,
-                      content: starterContent[f.ext] || '',
+                      filename: tmpl.ext,
+                      content: STARTER_CONTENT[tmpl.ext] || '',
                     })
                   }
                 >
-                  {f.icon}
-                  <span>{f.label}</span>
+                  <span
+                    className="welcome-lang-tag"
+                    style={{ borderColor: `${tmpl.badgeColor}40`, color: tmpl.badgeColor }}
+                  >
+                    {tmpl.badge}
+                  </span>
+                  <div className="welcome-action-info">
+                    <span className="welcome-action-name">{tmpl.label}</span>
+                    <span className="welcome-action-desc">{tmpl.desc}</span>
+                  </div>
+                  <span className="welcome-template-ext">{tmpl.ext}</span>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Tips */}
-        <div className="welcome-tips">
-          <span>💡 Drag & drop files here to open them</span>
-          <span>·</span>
-          <span>Ctrl+Shift+P for Command Palette</span>
+        {/* Footer Hints */}
+        <div className="welcome-footer">
+          <div className="welcome-footer-chip">
+            <span className="chip-bullet">📁</span>
+            <span>Drag & drop files anywhere to open</span>
+          </div>
+          <div className="welcome-footer-chip">
+            <span className="chip-bullet">⚡</span>
+            <span>Press <kbd>Ctrl+Shift+T</kbd> for Dev Tools</span>
+          </div>
+          <div className="welcome-footer-chip">
+            <span className="chip-bullet">📝</span>
+            <span>Press <kbd>Ctrl+Shift+V</kbd> for Markdown Preview</span>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Zap } from 'lucide-react';
 import { useEditorStore } from '../../store/editorStore';
 import { useUIStore } from '../../store/uiStore';
+import { openFiles, saveFile, saveFileAs } from '../../services/fileService';
 
 interface MenuItem {
   label: string;
@@ -21,11 +22,12 @@ export const MenuBar: React.FC = () => {
   const menuRef = useRef<HTMLDivElement>(null);
 
   const addTab = useEditorStore((s) => s.addTab);
+  const updateTab = useEditorStore((s) => s.updateTab);
   const { 
     setShowSettings, setShowCommandPalette, setShowFindReplace,
     toggleSidebar, toggleToolsPanel, toggleWordWrap, toggleZenMode,
     toggleMarkdownPreview, setActiveTool, setTheme, theme,
-    toggleLineNumbers, toggleMinimap
+    toggleLineNumbers, toggleMinimap, addToast, addRecentFile
   } = useUIStore();
   const activeTab = useEditorStore((s) => s.getActiveTab());
 
@@ -41,13 +43,69 @@ export const MenuBar: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openMenu, handleClose]);
 
+  const handleOpenFile = async () => {
+    const files = await openFiles();
+    files.forEach((f) => {
+      addTab({
+        filename: f.filename,
+        content: f.content,
+        filepath: f.filepath,
+      });
+      addRecentFile(f.filepath || f.filename);
+      addToast(`Opened: ${f.filename}`, 'success');
+    });
+  };
+
+  const handleSave = async () => {
+    if (!activeTab) return;
+    const res = await saveFile(activeTab.filepath, activeTab.filename, activeTab.content);
+    if (res.success) {
+      updateTab(activeTab.id, {
+        isDirty: false,
+        filepath: res.filepath || activeTab.filepath,
+      });
+      addToast(`Saved: ${activeTab.filename}`, 'success');
+    } else if (res.error) {
+      addToast(`Save error: ${res.error}`, 'error');
+    }
+  };
+
+  const handleSaveAs = async () => {
+    if (!activeTab) return;
+    const res = await saveFileAs(activeTab.filename, activeTab.content);
+    if (res.success && res.filepath) {
+      updateTab(activeTab.id, {
+        isDirty: false,
+        filepath: res.filepath,
+        filename: res.filepath.split(/[/\\]/).pop() || activeTab.filename,
+      });
+      addToast(`Saved as: ${activeTab.filename}`, 'success');
+    } else if (res.error) {
+      addToast(`Save error: ${res.error}`, 'error');
+    }
+  };
+
+  const transformText = (type: 'upper' | 'lower' | 'title') => {
+    if (!activeTab) return;
+    let newContent = activeTab.content;
+    if (type === 'upper') {
+      newContent = activeTab.content.toUpperCase();
+    } else if (type === 'lower') {
+      newContent = activeTab.content.toLowerCase();
+    } else if (type === 'title') {
+      newContent = activeTab.content.replace(/\b[a-z]/g, (char) => char.toUpperCase());
+    }
+    updateTab(activeTab.id, { content: newContent, isDirty: true });
+    addToast(`Applied ${type}case transform`, 'info');
+  };
+
   const menus: Record<string, MenuItem[]> = {
     File: [
       { label: 'New File', shortcut: 'Ctrl+N', action: () => addTab({ filename: 'Untitled' }) },
       { label: 'Open File', shortcut: 'Ctrl+O', action: () => handleOpenFile() },
       { separator: true, label: '' },
       { label: 'Save', shortcut: 'Ctrl+S', action: () => handleSave(), disabled: !activeTab },
-      { label: 'Save As...', shortcut: 'Ctrl+Shift+S', disabled: !activeTab },
+      { label: 'Save As...', shortcut: 'Ctrl+Shift+S', action: () => handleSaveAs(), disabled: !activeTab },
       { separator: true, label: '' },
       { label: 'Preferences', shortcut: 'Ctrl+,', action: () => setShowSettings(true) },
     ],
@@ -97,44 +155,6 @@ export const MenuBar: React.FC = () => {
       { label: 'lowercase', action: () => transformText('lower') },
       { label: 'Title Case', action: () => transformText('title') },
     ],
-  };
-
-  const handleOpenFile = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.onchange = (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (files) {
-        Array.from(files).forEach((file) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            addTab({
-              filename: file.name,
-              content: ev.target?.result as string || '',
-              filepath: file.name,
-            });
-          };
-          reader.readAsText(file);
-        });
-      }
-    };
-    input.click();
-  };
-
-  const handleSave = () => {
-    if (!activeTab) return;
-    const blob = new Blob([activeTab.content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = activeTab.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const transformText = (_type: string) => {
-    // Text transforms are handled via CodeMirror dispatch
   };
 
   return (

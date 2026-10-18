@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import { useEditorStore } from '../../store/editorStore';
+import { openFiles } from '../../services/fileService';
 
 interface Command {
   id: string;
@@ -37,7 +38,12 @@ export const CommandPalette: React.FC = () => {
   const commands: Command[] = useMemo(() => [
     // File
     { id: 'new-file', label: 'New File', shortcut: 'Ctrl+N', icon: <FileText size={16} />, category: 'File', action: () => addTab({ filename: 'Untitled' }) },
-    { id: 'open-file', label: 'Open File', shortcut: 'Ctrl+O', icon: <FileText size={16} />, category: 'File', action: () => document.getElementById('file-input-trigger')?.click() },
+    { id: 'open-file', label: 'Open File', shortcut: 'Ctrl+O', icon: <FileText size={16} />, category: 'File', action: async () => {
+      const files = await openFiles();
+      files.forEach((f) => {
+        addTab({ filename: f.filename, content: f.content, filepath: f.filepath });
+      });
+    }},
     { id: 'settings', label: 'Open Settings', shortcut: 'Ctrl+,', icon: <Settings size={16} />, category: 'File', action: () => setShowSettings(true) },
 
     // View
