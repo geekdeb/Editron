@@ -28,12 +28,15 @@ Whether you need a quick distraction-free scratchpad, a markdown previewer, or i
 
 ## 🚀 Download & Installation
 
-### Windows Installer (x64)
-Download the latest Windows installer directly from our GitHub Releases:
+Choose your preferred format from our official [GitHub Releases (v1.0.0)](https://github.com/geekdeb/Editron/releases/latest):
 
-👉 **[Download Editron Setup (v1.0.0)](https://github.com/geekdeb/Editron/releases/latest)**
+| Format | File | Size | Architecture | Description | Download |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Installer** | `Editron_1.0.0_x64-setup.exe` | ~4.1 MB | Windows x64 | Standard NSIS setup installer with Start Menu & Desktop shortcuts | [⬇️ **Download Installer**](https://github.com/geekdeb/Editron/releases/download/v1.0.0/Editron_1.0.0_x64-setup.exe) |
+| **Portable** | `Editron_1.0.0_x64_portable.zip` | ~4.3 MB | Windows x64 | Standalone zero-install archive (extract and run immediately) | [⬇️ **Download Portable**](https://github.com/geekdeb/Editron/releases/download/v1.0.0/Editron_1.0.0_x64_portable.zip) |
 
-*Simply run `Editron_1.0.0_x64-setup.exe` to install. No external dependencies required.*
+> [!TIP]
+> **Zero External Dependencies**: Editron is self-contained with its native Rust engine. It runs instantly on 64-bit Windows 10 and Windows 11.
 
 ---
 

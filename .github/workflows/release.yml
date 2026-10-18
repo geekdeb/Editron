@@ -49,8 +49,13 @@ jobs:
           releaseBody: |
             ## Editron Release ${{ github.ref_name }} ⚡
             
-            Download the official Windows installer below to get started:
-            - **`Editron_1.0.0_x64-setup.exe`** (Standard Windows NSIS Installer)
+            Welcome to **Editron** — the lightning-fast, privacy-first desktop text editor and developer swiss-army knife!
+            
+            ### 📥 Downloads
+            
+            Download the official Windows builds below:
+            - **`Editron_1.0.0_x64-setup.exe`** — Standard Windows NSIS Setup Installer (Recommended)
+            - **`Editron_1.0.0_x64_portable.zip`** — Standalone Portable Zip (Extract & run immediately)
             
             ### Highlights
             - ⚡ Instant native desktop startup and ultra-low RAM footprint
@@ -61,3 +66,30 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Package Portable Executable
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          $zipName = "Editron_${ver}_x64_portable.zip"
+          Compress-Archive -Path "src-tauri/target/release/editron.exe" -DestinationPath "$zipName" -Force
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
+
+      - name: Upload Portable Zip to Release
+        if: matrix.platform == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Build Artifacts to Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: editron-windows-build-${{ github.ref_name }}
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            Editron_*_x64_portable.zip
+
