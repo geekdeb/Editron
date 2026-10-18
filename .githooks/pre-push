@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# Editron Git Pre-Push Hook
+# Restricts direct pushes to the main branch.
+
+while read local_ref local_oid remote_ref remote_oid
+do
+    # Block any direct push to main
+    if [ "$remote_ref" = "refs/heads/main" ]; then
+        echo ""
+        echo "====================================================================="
+        echo "🛑 PUSH TO MAIN RESTRICTED: Direct pushes to 'main' are blocked!"
+        echo "====================================================================="
+        echo ""
+        echo "Workflow: Use feature branches for all new work:"
+        echo "  1. Create a feature branch:  git checkout -b feature/<feature-name>"
+        echo "  2. Commit your changes:      git commit -m 'feat: your message'"
+        echo "  3. Push feature branch:      git push -u origin feature/<feature-name>"
+        echo "  4. Create a Pull Request on GitHub to merge into 'main'."
+        echo ""
+        echo "====================================================================="
+        exit 1
+    fi
+done
+
+exit 0
